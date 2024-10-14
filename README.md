@@ -52,6 +52,7 @@ NVIDIA RTX 20 series or newer NVIDIA GPUs
 2. Clone this repo: `git clone https://github.com/JeremyGuo/RealCUGAN-TensorRT.git && cd RealCUGAN-TensorRT`
 3. Install requirements `pip install -r requirements.txt`
 4. Install pytorch according to the official website.
+5. Download weights `XXX.pth` from the original RealCUGAN repo: [RealCUGAN](https://github.com/bilibili/ailab/tree/main/Real-CUGAN).
 
 **Important** : TensoRT changes API frequently, thus this project only supports to `10.5.0`.
 
