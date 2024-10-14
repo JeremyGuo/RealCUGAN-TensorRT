@@ -28,7 +28,18 @@ def sr_create_engine(config:Config, start=True) -> SREngine:
         engine.start()
     return engine
 
-def sr_video(engine:SREngine, inp_file:str, out_file:str, config:Config, verbose=True):
+class SRVideoStat:
+    def __init__(self):
+        self.total_frames = 0
+        self.encoded_frames = 0
+        self.sred_frames = 0
+    
+    def getProgress(self):
+        if self.total_frames == 0:
+            return 0
+        return self.sred_frames / self.total_frames
+
+def sr_video(engine:SREngine, inp_file:str, out_file:str, config:Config, verbose=True, stat:SRVideoStat=SRVideoStat()):
     if verbose: print ("Super Resolution started... {} {}".format(inp_file, out_file))
     objVideoreader = VideoFileClip(filename=inp_file)
     w, h = objVideoreader.reader.size
@@ -36,7 +47,7 @@ def sr_video(engine:SREngine, inp_file:str, out_file:str, config:Config, verbose
         if verbose: print(f"Input video resolution {w}x{h} is not equal to SR resolution {config.sr_width}x{config.sr_height}")
         return
     fps = objVideoreader.reader.fps
-    total_frames = objVideoreader.reader.nframes
+    stat.total_frames = objVideoreader.reader.nframes
     if_audio = objVideoreader.audio
 
     # Clear Tmp Directory, TODO: dirty codes, modify later
@@ -102,6 +113,7 @@ def sr_video(engine:SREngine, inp_file:str, out_file:str, config:Config, verbose
                 print(f"Failed to encode clip {inp_file}")
                 os._exit(1)
             
+            stat.encoded_frames += sr_clip_number_frames[encode_clip_number]
             encoded_frames += sr_clip_number_frames[encode_clip_number]
             total_encoded_time_ms += (time.time() - start_time) * 1000
             os.system(f'rm -rf {clip_folder}')
@@ -141,6 +153,7 @@ def sr_video(engine:SREngine, inp_file:str, out_file:str, config:Config, verbose
             for _ in range(number_of_frames):
                 index, output = engine.get()
                 sr_frames += 1
+                stat.sred_frames += 1
                 frame_in_engine -= 1
 
                 path = config.sr_tmp_dir / str(index[0]) / f'{index[1]}.bmp'
