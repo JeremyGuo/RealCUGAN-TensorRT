@@ -16,7 +16,7 @@ class Config:
         self.sr_encoder='libx264'
         self.sr_tmp_dir=Path.home() / "tmp"
         self.sr_encode_params = ['-crf', '21']
-        self.sr_buffer_size = '1G'
+        self.sr_buffer_size = 1000000000
 
 default_config = Config()
 

@@ -22,6 +22,7 @@ TODO:
 **Fucntion:**
 - [x] Video super resolution
 - [x] Image super resolution
+- [ ] Faster `sr_tool.py`
 
 ## Performance Improvement
 
@@ -34,6 +35,8 @@ Testing on an NVIDIA RTX 2080Ti shows the following performance improvements:
 * After code optimization: 4.0 FPS
 * With TensorRT implementation and optimizations: 9.8 FPS
 Through our optimizations, the inference speed of RealCUGAN has improved to approximately 280%.
+
+Our CLI tool, `sr_tool.py`, is capable of 8.9FPS when generating super resolution for 1080P video
 
 ## Environment Setup
 
