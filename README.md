@@ -90,6 +90,13 @@ while not stop_flag:
         engine.put((ANYTHING, image))
 engine.stop()
 ```
+
+## For Testing
+
+You could you `python3 benchmark.py` for basic evaluaiton.
+
+The profiling result of the above is in `profile.nsys-rep`
+
 ## Something More
 
 This project is also used to my project [Mikan Tracker](https://github.com/JeremyGuo/MikanTracker) to automatically track torrents and RSSes.
