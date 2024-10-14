@@ -394,7 +394,7 @@ class UpCunet2x(nn.Module):
         res = res.permute(0, 2, 3, 1)
         return res
 
-from trt_module import TRTModule
+from .trt_module import TRTModule
 class RealCUGANUpScaler2x(object):
     def __init__(self, weight_path, half, tile, alpha, h, w, accel=False, device="cpu", export_engine=False, export_engine_verbose=False):
         self.half               =   half

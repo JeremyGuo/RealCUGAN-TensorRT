@@ -1,8 +1,8 @@
 import argparse
 import sys
-from config import Config, default_config, encoders
-from sr_engine import SREngine
-from upcunet2x import RealCUGANUpScaler2x
+from .config import Config, default_config, encoders
+from .sr_engine import SREngine
+from .upcunet2x import RealCUGANUpScaler2x
 
 from moviepy.editor import VideoFileClip
 import cv2

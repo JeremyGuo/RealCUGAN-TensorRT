@@ -2,7 +2,7 @@ import multiprocessing
 import threading
 from typing import Sequence
 import numpy as np
-from upcunet2x import RealCUGANUpScaler2x
+from .upcunet2x import RealCUGANUpScaler2x
 
 class SREngine:
     def __init__(self, models : Sequence[RealCUGANUpScaler2x], queue_size=256):
