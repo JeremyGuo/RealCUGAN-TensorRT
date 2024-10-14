@@ -36,8 +36,8 @@ class SRVideoStat:
     
     def getProgress(self):
         if self.total_frames == 0:
-            return 0
-        return self.sred_frames / self.total_frames
+            return 0, 0
+        return self.encoded_frames / self.total_frames, self.sred_frames / self.total_frames
 
 def sr_video(engine:SREngine, inp_file:str, out_file:str, config:Config, verbose=True, stat:SRVideoStat=SRVideoStat()):
     if verbose: print ("Super Resolution started... {} {}".format(inp_file, out_file))
