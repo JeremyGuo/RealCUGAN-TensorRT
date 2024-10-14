@@ -1,0 +1,5 @@
+onnx
+onnxruntime
+pycuda
+tensorrt==10.5.0
+moviepy==2.0.0.dev2
