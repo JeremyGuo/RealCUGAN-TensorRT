@@ -420,8 +420,8 @@ class RealCUGANUpScaler2x(object):
             folder = os.path.join(".", "models")
             if not os.path.exists(folder):
                 os.makedirs(folder)
-            self.onnx_name = os.path.join(".", "models", f"model_2x_{str(self.pro)}_{tile}_{alpha}_{h}_{w}.onnx")
-            self.engine_name = os.path.join(".", "models", f"model_2x_{device}_{str(self.pro)}_{tile}_{alpha}_{h}_{w}.trt")
+            self.onnx_name = os.path.join(".", "models", f"model_2x_{str(self.half)}_{str(self.pro)}_{tile}_{alpha}_{h}_{w}.onnx")
+            self.engine_name = os.path.join(".", "models", f"model_2x_{str(self.half)}_{device}_{str(self.pro)}_{tile}_{alpha}_{h}_{w}.trt")
 
             import subprocess
             import multiprocessing
