@@ -4,7 +4,7 @@ class Config:
     def __init__(self):
         self.sr_threads=2
         self.sr_scale=2
-        self.sr_modelpath= Path(__file__).parent / 'weights/pro-conservative-up2x.pth'
+        self.sr_modelpath= 'weights/pro-conservative-up2x.pth'
         self.sr_tile=5
         self.sr_alpha=1
         self.sr_width=1920
