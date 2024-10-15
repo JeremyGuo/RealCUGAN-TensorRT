@@ -192,9 +192,6 @@ def sr_video(engine:SREngine, inp_file:str, out_file:str, config:Config, verbose
                         while encode_clip_number < sr_clip_number - 1:
                             if verbose: print("Waiting for encoder? This is a happy message.")
                             encode_clip_number_condition.wait()
-            
-            if encode_clip_number == 3: # For DEBUG
-                break
         
         if current_frame_index > 0:
             sr_clip_number_frames[current_clip_number] = current_frame_index
