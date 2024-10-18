@@ -1,4 +1,5 @@
 import multiprocessing
+import queue
 import threading
 from typing import Sequence
 import numpy as np
@@ -7,8 +8,8 @@ from .upcunet2x import RealCUGANUpScaler2x
 class SREngine:
     def __init__(self, models : Sequence[RealCUGANUpScaler2x], queue_size=256):
         self.models = models
-        self.input_queue = multiprocessing.Queue(queue_size)
-        self.output_queue = multiprocessing.Queue(queue_size)
+        self.input_queue = queue.Queue(queue_size)
+        self.output_queue = queue.Queue(queue_size)
         self.threads = []
         self.new_input_lock = threading.Lock()
         self.new_input_condition = threading.Condition(self.new_input_lock)
@@ -19,14 +20,17 @@ class SREngine:
         def proc(model):
             while not self.stopped:
                 with self.new_input_condition:
-                    while self.input_queue.empty():
+                    while not self.stopped:
+                        try:
+                            index, input = self.input_queue.get(block=False)
+                        except Exception as e:
+                            input = None
+                        if input is not None:
+                            break
                         self.new_input_condition.wait()
-                        if self.stopped: break
-                if self.stopped: break
-                index, input = self.input_queue.get()
+                    if self.stopped: break
                 output = model(input)
                 self.output_queue.put((index, np.copy(output)))
-            print("Engine stopped")
         self.threads = [threading.Thread(target=proc, args=(model,)) for model in self.models]
         for p in self.threads:
             p.start()
