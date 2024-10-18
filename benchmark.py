@@ -1,9 +1,9 @@
-from upcunet2x import RealCUGANUpScaler2x
+from realcugan_trt.upcunet2x import RealCUGANUpScaler2x
 import numpy as np
 import time
 import threading
 import cv2
-from sr_engine import SREngine
+from realcugan_trt.sr_engine import SREngine
 
 model1 = RealCUGANUpScaler2x('./weights/pro-conservative-up2x.pth', True, device='cuda:0', tile=5, alpha=1, w=1920, h=1080, export_engine=True)
 model2 = RealCUGANUpScaler2x('./weights/pro-conservative-up2x.pth', True, device='cuda:0', tile=5, alpha=1, w=1920, h=1080, export_engine=True)

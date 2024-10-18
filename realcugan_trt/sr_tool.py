@@ -4,9 +4,21 @@ from .config import Config, default_config, encoders
 from .sr_engine import SREngine
 from .upcunet2x import RealCUGANUpScaler2x
 
-from moviepy.editor import VideoFileClip
+# from moviepy.editor import VideoFileClip
+from .video_decoder import VideoFileClip
+from .video_encoder import VideoEncoderGroup
 import cv2
 import os
+from multiprocessing import Pool
+import multiprocessing
+import pickle
+
+def save_image_to(image):
+    filename = f'/dev/shm/{image[0]}.png'
+    if os.path.exists(filename):
+        os.remove(filename)
+    image = cv2.cvtColor(image[1], cv2.COLOR_RGB2BGR)
+    cv2.imwrite(filename, image, [cv2.IMWRITE_PNG_COMPRESSION, 0])
 
 def sr_create_engine(config:Config, start=True) -> SREngine:
     models = []
@@ -75,6 +87,7 @@ def sr_video(engine:SREngine, inp_file:str, out_file:str, config:Config, verbose
     encode_clip_number_lock = threading.Lock()
     encode_clip_number_condition = threading.Condition(encode_clip_number_lock)
     encode_clip_number = 0
+    encode_subclip_index = 0
     encode_clip_list = []
     encoded_frames = 0
     total_encoded_time_ms = 0
@@ -83,6 +96,7 @@ def sr_video(engine:SREngine, inp_file:str, out_file:str, config:Config, verbose
     sr_clip_number_condition = threading.Condition(sr_clip_number_lock)
     sr_clip_number = 0
     sr_clip_number_frames = {}
+    sr_clip_frame_buffer = {}
     sr_finished = False
     sr_start_time = time.time()
     sr_frames = 0
@@ -91,6 +105,8 @@ def sr_video(engine:SREngine, inp_file:str, out_file:str, config:Config, verbose
         nonlocal encode_clip_number
         nonlocal encoded_frames
         nonlocal total_encoded_time_ms
+        nonlocal encode_subclip_index
+        nonlocal encode_clip_list
         while True:
             with sr_clip_number_condition:
                 while encode_clip_number == sr_clip_number and not sr_finished:
@@ -99,29 +115,34 @@ def sr_video(engine:SREngine, inp_file:str, out_file:str, config:Config, verbose
                 break
             start_time = time.time()
             clip_folder = config.sr_tmp_dir / str(encode_clip_number)
-            clip_path = config.sr_tmp_dir / f'{encode_clip_number}{output_suffix}'
-            cmd = []
-
+            clip_paths = []
+            n_ffmpeg_threads = min(config.sr_max_encoder_thread, sr_clip_number_frames[encode_clip_number])
+            for i in range(n_ffmpeg_threads):
+                clip_path = config.sr_tmp_dir / f'{encode_subclip_index}{output_suffix}'
+                encode_subclip_index += 1
+                clip_paths.append(clip_path)
+            
+            cmd = ['-c:v', config.sr_encoder]
             encoder_params = encoders[config.sr_encoder]
             for param in encoder_params:
                 cmd.append(param)
                 cmd.append(str(encoder_params[param]))
             
-            cmd = ['ffmpeg', '-r', str(fps), '-f', 'image2', '-s', f'{w}x{h}', '-i',
-                    f'{clip_folder}/%d.bmp', '-c:v', config.sr_encoder] + cmd + ['-pix_fmt', 'yuv420p', str(clip_path)]
-            if sp.Popen(cmd, stdout=DEVNULL, stderr=DEVNULL, stdin=DEVNULL).wait() != 0:
-                print(f"Failed to encode clip {inp_file}")
-                os._exit(1)
+            encoder = VideoEncoderGroup(clip_paths, fps, w * 2, h * 2, sr_clip_frame_buffer[encode_clip_number][0][1].dtype, sr_clip_number_frames[encode_clip_number], cmd)
+            for frame in sr_clip_frame_buffer[encode_clip_number]:
+                encoder.encode_frame(frame[1])
+            encoder.close()
+            del sr_clip_frame_buffer[encode_clip_number]
             
             stat.encoded_frames += sr_clip_number_frames[encode_clip_number]
             encoded_frames += sr_clip_number_frames[encode_clip_number]
             total_encoded_time_ms += (time.time() - start_time) * 1000
-            os.system(f'rm -rf {clip_folder}')
+
             with encode_clip_number_condition:
                 encode_clip_number += 1
                 encode_clip_number_condition.notify_all()
             
-            encode_clip_list.append(clip_path)
+            encode_clip_list += clip_paths
     
     def SRThread():
         nonlocal sr_clip_number
@@ -134,7 +155,7 @@ def sr_video(engine:SREngine, inp_file:str, out_file:str, config:Config, verbose
         current_clip_number = 0
         collected_frames[current_clip_number] = 0
         sr_clip_number_frames[current_clip_number] = 0
-        os.system(f'mkdir -p {str(config.sr_tmp_dir / str(current_clip_number))}')
+        sr_clip_frame_buffer[current_clip_number] = []
 
         BATCH_SIZE = 32
         frame_in_engine = 0
@@ -156,12 +177,12 @@ def sr_video(engine:SREngine, inp_file:str, out_file:str, config:Config, verbose
                 stat.sred_frames += 1
                 frame_in_engine -= 1
 
-                path = config.sr_tmp_dir / str(index[0]) / f'{index[1]}.bmp'
-                output = cv2.cvtColor(output[0], cv2.COLOR_RGB2BGR)
-                cv2.imwrite(str(path), output)
+                # path = config.sr_tmp_dir / str(index[0]) / f'{index[1]}.bmp'
+                sr_clip_frame_buffer[index[0]].append((index[1], output[0].copy()))
+                # print(output[0])
 
                 if index[0] == current_clip_number:
-                    current_cache_size += os.path.getsize(str(path))
+                    current_cache_size += 2 * w * h * 3
                     if current_cache_size > config.sr_buffer_size:
                         sr_clip_number_frames[current_clip_number] = current_frame_index
 
@@ -170,16 +191,17 @@ def sr_video(engine:SREngine, inp_file:str, out_file:str, config:Config, verbose
                         current_frame_index = 0
                         collected_frames[current_clip_number] = 0
                         sr_clip_number_frames[current_clip_number] = 0
-                        os.system(f'mkdir -p {str(config.sr_tmp_dir / str(current_clip_number))}')
+                        sr_clip_frame_buffer[current_clip_number] = []
                 
                 collected_frames[index[0]] += 1
                 if collected_frames[index[0]] == sr_clip_number_frames[index[0]]:
+                    sr_clip_frame_buffer[index[0]].sort(key=lambda x: x[0])
                     with sr_clip_number_condition:
                         sr_clip_number += 1
                         sr_clip_number_condition.notify_all()
 
         for frame in objVideoreader.iter_frames():
-            engine.push((current_clip_number, current_frame_index), frame)
+            engine.push((current_clip_number, current_frame_index), frame.reshape(1, h, w, 3))
             current_frame_index += 1
             frame_in_engine += 1
 
@@ -267,15 +289,17 @@ def sr_video(engine:SREngine, inp_file:str, out_file:str, config:Config, verbose
 
 
 def sr_image(engine:SREngine, inp_file:str, out_file:str, config:Config):
-    img = cv2.imread(inp_file)
+    img = cv2.imread(inp_file, cv2.IMREAD_UNCHANGED)
     if img.shape != (config.sr_height, config.sr_width, 3):
         print(f"Input image resolution {img.shape} is not equal to SR resolution {config.sr_width}x{config.sr_height}")
         return
     img = img.reshape(1, config.sr_height, config.sr_width, 3)
     engine.push(0, img)
-    print("Super Resolution started...")
     _, result = engine.get()
     print("Super Resolution done, saving...")
+    ext = os.path.splitext(out_file)[1]
+    if ext == '.jpg' or ext == '.jpeg':
+        result[0] = cv2.convertScaleAbs(result[0], alpha=(255.0/65535.0)).astype('uint8')
     cv2.imwrite(out_file, result[0])
     print("Super Resolution done, cleanup...")
     engine.stop()

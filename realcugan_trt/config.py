@@ -13,7 +13,8 @@ class Config:
         self.sr_device='cuda:0'
 
         # ONLY FOR VIDEO SR and can be dynamically changed
-        self.sr_encoder='libx264'
+        self.sr_max_encoder_thread = 2
+        self.sr_encoder='hevc_nvenc'
         self.sr_tmp_dir=Path.home() / "tmp"
         self.sr_encode_params = ['-crf', '21']
         self.sr_buffer_size = 1000000000

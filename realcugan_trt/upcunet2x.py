@@ -293,8 +293,9 @@ class UpCunet2x(nn.Module):
     
     def forward(self, x:torch.Tensor):
         x = x.permute(0, 3, 1, 2)
-        if self.is_pro: x = x / (255 / 0.7) + 0.15
-        else: x = x / 255.0
+        if self.is_pro: x = x * 0.7 + 0.15
+        if self.is_half:
+            x = x.half()
         if self.tile_mode == 0:
             x = F.pad(x, (18, self.padw, 18, self.padh), 'reflect')
             x = self.unet1.forward(x)
@@ -303,6 +304,7 @@ class UpCunet2x(nn.Module):
             x = torch.add(x0, x)
             if (self.w != self.pw or self.h != self.ph):
                 x = x[:, :, :self.h * 2, :self.w * 2]
+            if self.is_pro: x = (x - 0.15) / 0.7
             return x
         x = F.pad(x, (18, self.padw, 18, self.padh),'reflect')
         n, c, h, w = 1, 3, self.refh, self.refw
@@ -387,11 +389,9 @@ class UpCunet2x(nn.Module):
                 res[:, :, i * 2:i * 2 + h1 * 2 - 72, j * 2:j * 2 + w1 * 2 - 72] = x
         del tmp_dict
         if(self.w!=self.ph or self.h!=self.ph):res=res[:,:,:self.h*2,:self.w*2]
-        if self.is_pro:
-            res = ((res - 0.15) * (255/0.7)).round().clamp_(0, 255)
-        else:
-            res = (res * 255.0).round().clamp_(0, 255)
-        res = res.permute(0, 2, 3, 1)
+        if self.is_pro: # Scale to 0-1
+            res = (res - 0.15) / 0.7
+        res = res.permute(0, 2, 3, 1).float()
         return res
 
 from .trt_module import TRTModule
@@ -485,13 +485,20 @@ class RealCUGANUpScaler2x(object):
             self.model.load_state_dict(weight, strict=True)
 
     def tensor2np(self, tensor: torch.Tensor):
-        return tensor.cpu().byte().numpy()
+        ret = (tensor.cpu().float() * 65535).round().clamp_(0, 65535).numpy().astype(np.uint16)
+        return ret
 
     def np2input(self, frame):
         if self.half and not self.export_engine:
-            return frame.astype(np.float16)
+            if frame.dtype == np.uint16:
+                return (frame.astype(np.float32) / 65535).astype(np.float16)
+            else:
+                return (frame.astype(np.float16) / 255).astype(np.float16)
         else:
-            return frame.astype(np.float32)
+            if frame.dtype == np.uint16:
+                return frame.astype(np.float32) / 65535
+            elif frame.dtype == np.uint8:
+                return frame.astype(np.float32) / 255
 
     def __call__(self, frame):
         with torch.no_grad():

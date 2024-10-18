@@ -3,3 +3,5 @@ models/*.onnx
 weights/*.pth
 .vscode
 __pycache__
+test/*.mp4
+test/*.bmp
